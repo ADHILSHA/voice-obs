@@ -1,5 +1,5 @@
 import { Prisma } from "../../generated/prisma/client.js";
-import type { Call, TurnRole } from "../../generated/prisma/client.js";
+import type { Call, RootCause, TurnRole, Verdict } from "../../generated/prisma/client.js";
 import { prisma } from "./client.js";
 
 export interface UpsertCallInput {
@@ -52,10 +52,96 @@ export async function upsertCall(input: UpsertCallInput): Promise<Call> {
   });
 }
 
+export async function countCallsForAgent(agentId: string): Promise<number> {
+  return prisma.call.count({ where: { agentId } });
+}
+
 export async function callExists(locationId: string, ghlCallId: string): Promise<boolean> {
   const call = await prisma.call.findUnique({
     where: { locationId_ghlCallId: { locationId, ghlCallId } },
     select: { id: true },
   });
   return call !== null;
+}
+
+export interface ListCallsFilters {
+  agentId?: string;
+  verdict?: Verdict;
+  criterionKey?: string;
+  rootCause?: string;
+  from?: Date;
+  to?: Date;
+  page?: number;
+}
+
+const CALLS_PAGE_SIZE = 20;
+
+export type CallListItem = Prisma.CallGetPayload<{
+  include: { agent: true; evaluations: { include: { results: false } } };
+}>;
+
+export interface ListCallsResult {
+  calls: CallListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function listCalls(locationId: string, filters: ListCallsFilters): Promise<ListCallsResult> {
+  const page = filters.page ?? 1;
+
+  const dateFilter: Prisma.DateTimeFilter = {};
+  if (filters.from) dateFilter.gte = filters.from;
+  if (filters.to) dateFilter.lte = filters.to;
+
+  const where: Prisma.CallWhereInput = {
+    locationId,
+    ...(filters.agentId ? { agentId: filters.agentId } : {}),
+    ...(filters.from || filters.to ? { startedAt: dateFilter } : {}),
+    ...(filters.verdict || filters.criterionKey || filters.rootCause
+      ? {
+          evaluations: {
+            some: {
+              results: {
+                some: {
+                  ...(filters.criterionKey ? { criterionKey: filters.criterionKey } : {}),
+                  ...(filters.verdict ? { verdict: filters.verdict } : {}),
+                  ...(filters.rootCause ? { rootCause: filters.rootCause as RootCause } : {}),
+                },
+              },
+            },
+          },
+        }
+      : {}),
+  };
+
+  const [calls, total] = await Promise.all([
+    prisma.call.findMany({
+      where,
+      include: { agent: true, evaluations: { orderBy: { createdAt: "desc" }, take: 1 } },
+      orderBy: { startedAt: "desc" },
+      skip: (page - 1) * CALLS_PAGE_SIZE,
+      take: CALLS_PAGE_SIZE,
+    }),
+    prisma.call.count({ where }),
+  ]);
+
+  return { calls, page, pageSize: CALLS_PAGE_SIZE, total };
+}
+
+export type CallWithDetails = Prisma.CallGetPayload<{
+  include: { turns: true; agent: true; evaluations: { include: { results: true } } };
+}>;
+
+// Scoped by locationId for tenant isolation, not just id -- a session for
+// location A must never be able to read location B's call by guessing an id.
+export async function getCallWithDetails(locationId: string, id: string): Promise<CallWithDetails | null> {
+  return prisma.call.findFirst({
+    where: { id, locationId },
+    include: {
+      turns: { orderBy: { idx: "asc" } },
+      agent: true,
+      evaluations: { include: { results: true }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  });
 }

@@ -53,3 +53,15 @@ export async function getHealthScoresForAgent(agentId: string): Promise<HealthSc
     select: { healthScore: true, createdAt: true },
   });
 }
+
+// No onDelete: Cascade on CriterionResult.evaluation, so results have to go
+// first. Used by POST /api/calls/:id/reevaluate to clear the cache before
+// re-running evaluateCall -- deliberately not just deleting by inputHash, since
+// the point is to force a fresh judge call regardless of whether the input
+// happens to hash the same as before.
+export async function deleteEvaluationsForCall(callId: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.criterionResult.deleteMany({ where: { evaluation: { callId } } }),
+    prisma.evaluation.deleteMany({ where: { callId } }),
+  ]);
+}

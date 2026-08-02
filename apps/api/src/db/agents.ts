@@ -23,3 +23,13 @@ export async function upsertAgentFromGhl(locationId: string, ghlAgent: GhlAgent)
 export async function getAgentByGhlId(locationId: string, ghlAgentId: string): Promise<Agent | null> {
   return prisma.agent.findUnique({ where: { locationId_ghlAgentId: { locationId, ghlAgentId } } });
 }
+
+export async function listAgentsByLocation(locationId: string): Promise<Agent[]> {
+  return prisma.agent.findMany({ where: { locationId }, orderBy: { name: "asc" } });
+}
+
+// Internal cuid lookup, scoped to locationId for tenant isolation -- distinct from
+// getAgentByGhlId, which is ingestion-only and keyed on the GHL id.
+export async function getAgentById(locationId: string, id: string): Promise<Agent | null> {
+  return prisma.agent.findFirst({ where: { id, locationId } });
+}

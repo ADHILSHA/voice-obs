@@ -33,6 +33,12 @@ const envSchema = z.object({
 
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
   DATABASE_URL: z.string().min(1),
+
+  ANTHROPIC_API_KEY: z.string().min(1),
+  // BUILD_SPEC.md says "claude-sonnet-4-6", which isn't a real model ID -- using
+  // claude-sonnet-5 for both per the initial spec review.
+  MODEL_EVAL: z.string().min(1).default("claude-sonnet-5"),
+  MODEL_SYNTHESIS: z.string().min(1).default("claude-sonnet-5"),
 });
 
 export const env = envSchema.parse(process.env);

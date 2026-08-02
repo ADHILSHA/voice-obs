@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { env } from "./config/env.js";
 import { registerAuthenticateHook } from "./http/middleware/authenticate.js";
+import { registerAgentRoutes } from "./http/routes/agents.js";
 import { registerAuthRoutes } from "./http/routes/auth.js";
 import { registerOAuthRoutes } from "./http/routes/oauth.js";
 import { registerPitRoutes } from "./http/routes/pit.js";
@@ -19,6 +20,7 @@ await registerOAuthRoutes(app);
 await registerPitRoutes(app);
 await registerSyncRoutes(app);
 await registerWebhookRoutes(app);
+await registerAgentRoutes(app);
 
 startWorker();
 await scheduleDeltaPoll();

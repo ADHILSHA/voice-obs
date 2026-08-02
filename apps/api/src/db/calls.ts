@@ -76,9 +76,29 @@ export interface ListCallsFilters {
 
 const CALLS_PAGE_SIZE = 20;
 
-export type CallListItem = Prisma.CallGetPayload<{
-  include: { agent: true; evaluations: { include: { results: false } } };
-}>;
+// Uses `select`, not `include`, so list rows stay light -- `include` would pull
+// every scalar column (rawPayload's full duplicated transcript, agent's full
+// promptSnapshot) onto every row in what's meant to be a summary view.
+const callListSelect = {
+  id: true,
+  locationId: true,
+  agentId: true,
+  ghlCallId: true,
+  startedAt: true,
+  durationSec: true,
+  direction: true,
+  endedReason: true,
+  recordingUrl: true,
+  isTrialCall: true,
+  agent: { select: { id: true, name: true } },
+  evaluations: {
+    select: { id: true, callId: true, scorecardVersion: true, healthScore: true, metrics: true, createdAt: true },
+    orderBy: { createdAt: "desc" as const },
+    take: 1,
+  },
+} satisfies Prisma.CallSelect;
+
+export type CallListItem = Prisma.CallGetPayload<{ select: typeof callListSelect }>;
 
 export interface ListCallsResult {
   calls: CallListItem[];
@@ -118,7 +138,7 @@ export async function listCalls(locationId: string, filters: ListCallsFilters): 
   const [calls, total] = await Promise.all([
     prisma.call.findMany({
       where,
-      include: { agent: true, evaluations: { orderBy: { createdAt: "desc" }, take: 1 } },
+      select: callListSelect,
       orderBy: { startedAt: "desc" },
       skip: (page - 1) * CALLS_PAGE_SIZE,
       take: CALLS_PAGE_SIZE,

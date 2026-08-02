@@ -42,4 +42,14 @@ await app.register(fastifyStatic, {
 
 app.get("/health", async () => ({ status: "ok" }));
 
+// Vue Router owns client-side routes like /calls/:id -- a direct load or
+// refresh on one of those must still serve the SPA shell, not 404. API 404s
+// stay JSON.
+app.setNotFoundHandler((request, reply) => {
+  if (request.method !== "GET" || request.url.startsWith("/api/")) {
+    return reply.status(404).send({ error: "Not found" });
+  }
+  return reply.sendFile("index.html");
+});
+
 await app.listen({ port: env.PORT, host: "0.0.0.0" });

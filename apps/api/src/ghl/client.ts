@@ -85,6 +85,53 @@ export function refreshOAuthToken(refreshToken: string): Promise<GhlTokenRespons
   });
 }
 
+const locationTokenResponseSchema = z.object({
+  access_token: z.string(),
+  token_type: z.string(),
+  expires_in: z.number(),
+  refresh_token: z.string(),
+});
+
+export interface GhlLocationTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token: string;
+  locationId: string;
+  companyId: string;
+}
+
+// Converts a Company-level (agency) grant into a token scoped to one specific
+// location. Confirmed via HighLevel's docs and a working curl example:
+// POST /oauth/locationToken, Authorization: Bearer <agency access token>,
+// form body { companyId, locationId }.
+export async function getLocationAccessToken(
+  agencyAccessToken: string,
+  companyId: string,
+  locationId: string,
+): Promise<GhlLocationTokenResponse> {
+  const body = new URLSearchParams({ companyId, locationId });
+
+  const res = await ghlFetch("/oauth/locationToken", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      Version: env.GHL_API_VERSION,
+      Authorization: `Bearer ${agencyAccessToken}`,
+    },
+    body,
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`GHL location-token exchange failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+
+  const parsed = locationTokenResponseSchema.parse(json);
+  return { ...parsed, locationId, companyId };
+}
+
 // Confirmed endpoint (https://marketplace.gohighlevel.com/docs/ghl/locations/get-location/):
 // GET /locations/:locationId, Bearer auth, works with a PIT. Used only to prove a
 // pasted PIT is valid for the claimed location -- the response body isn't consumed.

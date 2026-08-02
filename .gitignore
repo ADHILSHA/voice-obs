@@ -1,7 +1,19 @@
 node_modules
 dist
+*.tsbuildinfo
 .env
 .env.local
+.env.*.local
 *.log
+.DS_Store
+coverage/
+
+# local AI agent tooling, not part of the app
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
 apps/api/public
-test/fixtures/raw-*.json
+apps/api/test/fixtures/raw-*.json
+
+/apps/api/generated/prisma

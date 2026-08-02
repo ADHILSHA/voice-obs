@@ -4,10 +4,10 @@ services:
     environment:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: voiceobs
-    ports: ["5432:5432"]
+    ports: ["5433:5432"] # 5432 already taken by a native Postgres on this machine
     volumes: ["pgdata:/var/lib/postgresql/data"]
   redis:
     image: redis:7
-    ports: ["6379:6379"]
+    ports: ["6380:6379"] # 6379 already taken by a native Redis on this machine
 volumes:
   pgdata:

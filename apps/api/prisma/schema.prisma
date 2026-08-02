@@ -11,3 +11,225 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum AuthMode {
+  OAUTH
+  PIT
+}
+
+enum ScorecardSource {
+  GENERATED
+  TEMPLATE
+  MANUAL
+}
+
+enum CriterionCategory {
+  GOAL
+  DATA_CAPTURE
+  KNOWLEDGE
+  CONTAINMENT
+  COMPLIANCE
+  CONVERSATIONAL
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EvalMethod {
+  DETERMINISTIC
+  LLM
+}
+
+enum TurnRole {
+  AGENT
+  CALLER
+  SYSTEM
+}
+
+enum Verdict {
+  PASS
+  PARTIAL
+  FAIL
+  NOT_APPLICABLE
+}
+
+enum RootCause {
+  MISSING_INSTRUCTION
+  AMBIGUOUS_INSTRUCTION
+  KNOWLEDGE_GAP
+  FLOW_ORDERING
+  GUARDRAIL_MISSING
+  CALLER_SIDE
+}
+
+enum RecStatus {
+  OPEN
+  APPLIED
+  DISMISSED
+}
+
+enum ActionReason {
+  HUMAN_REQUESTED
+  HIGH_INTENT_LOST
+  COMPLIANCE_MISS
+  KNOWLEDGE_GAP
+}
+
+enum ActionStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+model Installation {
+  id           String     @id @default(cuid())
+  locationId   String     @unique
+  companyId    String?
+  accessToken  String // AES-256-GCM ciphertext
+  refreshToken String
+  expiresAt    DateTime
+  authMode     AuthMode
+  installedAt  DateTime   @default(now())
+  lastSyncedAt DateTime?
+  syncCursor   DateTime? // watermark for the delta poller
+}
+
+model Agent {
+  id              String      @id @default(cuid())
+  locationId      String
+  ghlAgentId      String
+  name            String
+  promptSnapshot  String      @db.Text // last known agent prompt
+  promptFetchedAt DateTime
+  scorecards      Scorecard[]
+  calls           Call[]
+
+  @@unique([locationId, ghlAgentId])
+}
+
+model Scorecard {
+  id        String          @id @default(cuid())
+  agentId   String
+  version   Int
+  isActive  Boolean         @default(true)
+  source    ScorecardSource
+  criteria  Criterion[]
+  createdAt DateTime        @default(now())
+  agent     Agent           @relation(fields: [agentId], references: [id])
+
+  @@unique([agentId, version])
+}
+
+model Criterion {
+  id                String            @id @default(cuid())
+  scorecardId       String
+  key               String // stable slug, survives version bumps: "books_appointment"
+  name              String
+  description       String            @db.Text // what "pass" looks like, written for the judge
+  category          CriterionCategory
+  severity          Severity
+  weight            Float             @default(1)
+  method            EvalMethod
+  deterministicRule Json? // only when method = DETERMINISTIC
+  scorecard         Scorecard         @relation(fields: [scorecardId], references: [id])
+}
+
+model Call {
+  id               String       @id @default(cuid())
+  locationId       String
+  agentId          String
+  ghlCallId        String
+  direction        String? // no source field in the API at all; nullable until a call type surfaces one
+  startedAt        DateTime // populated from the API's `createdAt` -- there is no distinct call-start timestamp
+  durationSec      Int
+  endedReason      String? // no raw source field either; stays null unless synthesized from the transcript's last turn
+  actionsTriggered Json // maps from the API's `executedCallActions`; populated-entry shape unconfirmed (n=1, zero actions fired so far)
+  recordingUrl     String? // confirmed absent (key missing, not null) on every sample call so far
+  contactRef       String? // opaque, never a raw phone number; maps from the API's `contactId`
+  summary          String?      @db.Text // GHL's own generated call summary; not in the original spec, useful as judge context
+  extractedData    Json? // structured slot-capture data from the call; empty object on every sample so far, populated shape unconfirmed
+  isTrialCall      Boolean      @default(false) // maps from `trialCall` -- GHL's own test-call flag, distinct from our seed-script `isSynthetic`
+  isAgentDeleted   Boolean      @default(false) // maps from `isAgentDeleted`; the agent may no longer be fetchable via the agents endpoint
+  translation      Json? // null on every sample so far; shape unconfirmed
+  rawPayload       Json // redacted
+  turns            Turn[]
+  evaluations      Evaluation[]
+  agent            Agent        @relation(fields: [agentId], references: [id])
+
+  @@unique([locationId, ghlCallId])
+  @@index([agentId, startedAt])
+}
+
+model Turn {
+  id      String   @id @default(cuid())
+  callId  String
+  idx     Int // 0-based, THE anchor for all evidence references
+  role    TurnRole
+  text    String   @db.Text
+  startMs Int?
+  call    Call     @relation(fields: [callId], references: [id])
+
+  @@unique([callId, idx])
+}
+
+model Evaluation {
+  id               String            @id @default(cuid())
+  callId           String
+  scorecardVersion Int
+  promptVersion    String // hash of our judge prompt template
+  inputHash        String // sha256(transcript + scorecard + promptVersion)
+  healthScore      Float
+  metrics          Json // deterministic outputs: talkRatio, deadAirMs, reAsks, etc.
+  results          CriterionResult[]
+  createdAt        DateTime          @default(now())
+  call             Call              @relation(fields: [callId], references: [id])
+
+  @@unique([callId, inputHash])
+}
+
+model CriterionResult {
+  id            String     @id @default(cuid())
+  evaluationId  String
+  criterionKey  String
+  verdict       Verdict
+  confidence    Float
+  evidenceTurns Int[]
+  rationale     String     @db.Text
+  rootCause     RootCause? // MISSING_INSTRUCTION | AMBIGUOUS_INSTRUCTION | KNOWLEDGE_GAP |
+  // FLOW_ORDERING | GUARDRAIL_MISSING | CALLER_SIDE
+  evaluation    Evaluation @relation(fields: [evaluationId], references: [id])
+}
+
+model Recommendation {
+  id              String       @id @default(cuid())
+  agentId         String
+  criterionKey    String
+  rootCause       RootCause
+  title           String
+  body            String       @db.Text
+  promptDiff      Json // { before: string, after: string, insertAfterLine?: number }
+  affectedCalls   Int
+  affectedPct     Float
+  severity        Severity
+  evidenceCallIds String[]
+  status          RecStatus
+  appliedAt       DateTime?
+  baselineRate    Float? // criterion pass rate at time of apply
+  createdAt       DateTime     @default(now())
+}
+
+model ActionItem {
+  id        String       @id @default(cuid())
+  callId    String
+  reason    ActionReason
+  severity  Severity
+  status    ActionStatus
+  assignee  String?
+  note      String?
+  createdAt DateTime     @default(now())
+}

@@ -1,5 +1,5 @@
 <script setup lang="ts"></script>
 
 <template>
-  <div>Overview</div>
+  <div>Action Queue</div>
 </template>

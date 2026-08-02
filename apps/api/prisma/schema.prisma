@@ -157,6 +157,7 @@ model Call {
   isAgentDeleted   Boolean      @default(false) // maps from `isAgentDeleted`; the agent may no longer be fetchable via the agents endpoint
   translation      Json? // null on every sample so far; shape unconfirmed
   rawPayload       Json // redacted
+  redactionMap     String?      @db.Text // AES-256-GCM ciphertext of {placeholder: original}, for operator reveal
   turns            Turn[]
   evaluations      Evaluation[]
   agent            Agent        @relation(fields: [agentId], references: [id])
@@ -232,4 +233,28 @@ model ActionItem {
   assignee  String?
   note      String?
   createdAt DateTime     @default(now())
+}
+
+// Named in BUILD_SPEC §6.2 prose ("Log every payload to webhook_events for
+// replay") but never defined in the §5 sketch.
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  locationId  String
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([locationId, receivedAt])
+}
+
+// Named in BUILD_SPEC §6.1 prose ("log the raw body to a ghl_parse_failures
+// table") but never defined in the §5 sketch.
+model GhlParseFailure {
+  id         String   @id @default(cuid())
+  locationId String
+  endpoint   String
+  rawBody    Json
+  createdAt  DateTime @default(now())
+
+  @@index([locationId, createdAt])
 }

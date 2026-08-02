@@ -19,8 +19,11 @@ const envSchema = z.object({
   GHL_API_BASE: z.string().url().default("https://services.leadconnectorhq.com"),
   GHL_API_VERSION: z.string().min(1).default("2021-07-28"),
   PUBLIC_APP_URL: z.string().url(),
-  // Used only by the PIT-paste fallback path today, not by any real ingestion flow.
+  // The one sandbox location this project targets (non-goal: multi-tenant scale).
+  // Used by the PIT-paste fallback path and as the webhook route's fallback when a
+  // payload doesn't clearly identify its location.
   GHL_LOCATION_ID: z.string().min(1),
+  GHL_WEBHOOK_SECRET: z.string().min(1),
 
   SESSION_JWT_SECRET: z.string().min(1),
   // 32 bytes, hex-encoded -- AES-256-GCM key for Installation token storage.

@@ -1,10 +1,28 @@
 import { z } from "zod";
+import type { Prisma } from "../../generated/prisma/client.js";
 import { env } from "../config/env.js";
+import { logParseFailure } from "../db/ghlParseFailures.js";
 
-// The one module that calls HighLevel over HTTP (CLAUDE.md hard rule). Only auth-
-// necessary calls today: OAuth code/token exchange and a PIT-validation probe.
-// Data-fetching endpoints (call logs, agents, ...) are Phase 2 scope and get added
-// here, not in a new file.
+// The one module that calls HighLevel over HTTP (CLAUDE.md hard rule).
+
+function authHeaders(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}`, Version: env.GHL_API_VERSION, Accept: "application/json" };
+}
+
+async function parseOrLog<T>(
+  schema: z.ZodType<T>,
+  json: unknown,
+  locationId: string,
+  endpoint: string,
+): Promise<T> {
+  const result = schema.safeParse(json);
+  if (!result.success) {
+    // Per §6.1: log the raw body, then throw a typed error -- never silently coerce.
+    await logParseFailure(locationId, endpoint, json as Prisma.InputJsonValue);
+    throw new Error(`GHL response from ${endpoint} failed validation: ${result.error.message}`);
+  }
+  return result.data;
+}
 
 const MAX_ATTEMPTS = 4;
 
@@ -136,13 +154,121 @@ export async function getLocationAccessToken(
 // GET /locations/:locationId, Bearer auth, works with a PIT. Used only to prove a
 // pasted PIT is valid for the claimed location -- the response body isn't consumed.
 export async function validateLocationAccess(token: string, locationId: string): Promise<boolean> {
-  const res = await ghlFetch(`/locations/${locationId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Version: env.GHL_API_VERSION,
-      Accept: "application/json",
-    },
-  });
+  const res = await ghlFetch(`/locations/${locationId}`, { method: "GET", headers: authHeaders(token) });
   return res.ok;
+}
+
+// Verified against a real captured call from the Phase 0 spike (test/fixtures/).
+// recordingUrl is deliberately absent from this schema -- confirmed absent (key
+// missing, not null) on every sample call so far; if it ever appears it'll just be
+// stripped by Zod until this schema is updated to expect it.
+const callLogEntrySchema = z.object({
+  id: z.string(),
+  contactId: z.string().optional(),
+  createdAt: z.string(),
+  duration: z.number(),
+  agentId: z.string(),
+  isAgentDeleted: z.boolean(),
+  summary: z.string().optional(),
+  transcript: z.string(),
+  translation: z.unknown().nullable().optional(),
+  extractedData: z.record(z.string(), z.unknown()).optional(),
+  trialCall: z.boolean().optional(),
+  executedCallActions: z.array(z.unknown()),
+  agentTransferOccurred: z.boolean().optional(),
+});
+
+export type GhlCallLogEntry = z.infer<typeof callLogEntrySchema>;
+export { callLogEntrySchema };
+
+const callLogsListResponseSchema = z.object({
+  callLogs: z.array(callLogEntrySchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+
+export async function listCallLogs(
+  token: string,
+  locationId: string,
+  params: { page: number; pageSize: number },
+): Promise<z.infer<typeof callLogsListResponseSchema>> {
+  const query = new URLSearchParams({
+    locationId,
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+  });
+  const res = await ghlFetch(`/voice-ai/dashboard/call-logs?${query}`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`listCallLogs failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+  return parseOrLog(callLogsListResponseSchema, json, locationId, "listCallLogs");
+}
+
+export async function getCallLog(
+  token: string,
+  locationId: string,
+  callId: string,
+): Promise<GhlCallLogEntry> {
+  const res = await ghlFetch(`/voice-ai/dashboard/call-logs/${callId}?locationId=${locationId}`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`getCallLog failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+  return parseOrLog(callLogEntrySchema, json, locationId, "getCallLog");
+}
+
+// Verified against a real live call to this project's own sandbox during Phase 2
+// planning -- /voice-ai/dashboard/agents (naive path-symmetry with call-logs) 422s;
+// this is the real path. Fields not needed downstream (voiceId, language, timezone,
+// working hours, etc.) are deliberately left out of the schema rather than guessed.
+const agentSchema = z.object({
+  id: z.string(),
+  locationId: z.string(),
+  agentName: z.string(),
+  agentPrompt: z.string(),
+  actions: z.array(z.unknown()),
+});
+
+export type GhlAgent = z.infer<typeof agentSchema>;
+
+const agentsListResponseSchema = z.object({
+  agents: z.array(agentSchema),
+  total: z.number(),
+  page: z.number(),
+  pageSize: z.number(),
+});
+
+export async function listAgents(
+  token: string,
+  locationId: string,
+): Promise<z.infer<typeof agentsListResponseSchema>> {
+  const res = await ghlFetch(`/voice-ai/agents?locationId=${locationId}`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`listAgents failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+  return parseOrLog(agentsListResponseSchema, json, locationId, "listAgents");
+}
+
+export async function getAgent(token: string, locationId: string, ghlAgentId: string): Promise<GhlAgent> {
+  const res = await ghlFetch(`/voice-ai/agents/${ghlAgentId}?locationId=${locationId}`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`getAgent failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+  return parseOrLog(agentSchema, json, locationId, "getAgent");
 }

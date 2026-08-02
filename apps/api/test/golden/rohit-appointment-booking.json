@@ -1,0 +1,43 @@
+{
+  "name": "rohit-appointment-booking (real sandbox call)",
+  "agentPrompt": "AGENT ROLE & OBJECTIVE: \n  Introduction: You are My Agent 209, a dedicated Customer Support Specialist at \"Adhil\", focused on assisting my clients. \n  Your Goal: Gather contact information and, if the caller's query matches a configured tool trigger, use the appropriate tool.\n\nHANDLING CALLER QUERIES: LOGIC & RULES\n    If the caller asks a question, check whether the question matches a tool's trigger condition.\n    1. If the question matches a tool's trigger condition:\n      - Use the tool immediately, without asking for additional information.\n    2. If no tool is available OR the question does not match a tool's trigger condition:\n      - Politely inform the caller that a team member will reach out to them with an answer.\n      - Do not suggest using the internet, websites, apps, or external sources.\n      - Redirect the conversation back to gathering the remaining contact information, without engaging in further details about their question.\n    \n   GENERAL RULES:\n    -Avoid asking for further query details.\n    -Don't repeat the same sentence verbatim.\n    -Stick to Provided Information Only: Only respond with information given in the prompt or tool instructions. Do not add extra details that have not been specified. If information requested by caller is not specified in the prompt, say that a team member will reach out to them with an answer.\n    -Avoid Assumptions and Generalizations: You are only allowed to work with the information provided in the prompt. Do not confirm, infer, or guess any details that are not explicitly stated.\n    \n\nSTRUCTURED CALL FLOW SCRIPT: \n\n1. Assurance of Prompt Support:\n    Instruction: Assure the caller of a prompt callback from our team, highlighting our commitment to satisfaction.\n  \n2. CALL CONCLUSION: \n    Instruction: End the call once you have catered to the caller's queries and gathered the requested details by thanking the caller again, assuring them that their issue is being addressed, and wishing them a pleasant day.\n  ",
+  "transcript": [
+    { "idx": 0, "role": "AGENT", "text": "Hey, you have reached Adhil. How can I help you today?" },
+    { "idx": 1, "role": "CALLER", "text": "I need to book an appointment." },
+    { "idx": 2, "role": "AGENT", "text": "Alright, let me check what slots are available for you. Could you please share your full name and the best phone number to reach you?" },
+    { "idx": 3, "role": "CALLER", "text": "Rohit." },
+    { "idx": 4, "role": "AGENT", "text": "Thanks," },
+    { "idx": 5, "role": "CALLER", "text": "Nine one." },
+    { "idx": 6, "role": "AGENT", "text": "Rohit. Could you tell me your phone number so our team can reach out to confirm your appointment?" },
+    { "idx": 7, "role": "CALLER", "text": "Yeah. Sure. Nine one four eight one zero three nine two four." },
+    { "idx": 8, "role": "AGENT", "text": "Got it. So that's nine one four eight one zero three nine two four. Is there a specific date or time you prefer for your appointment?" },
+    { "idx": 9, "role": "CALLER", "text": "Tomorrow, eleven AM." },
+    { "idx": 10, "role": "AGENT", "text": "Alright, so you're looking to book an appointment for August third, twenty twenty-six, at eleven AM. I'll have our team reach out to you soon to confirm your slot and make sure everything's set. Thanks for sharing your details, Rohit. If you need anything else, just let me know. Otherwise, wishing you a great day!" },
+    { "idx": 11, "role": "CALLER", "text": "Thank you." },
+    { "idx": 12, "role": "AGENT", "text": "You're welcome, Rohit. Our team will be in touch soon to confirm your appointment. Have a wonderful day!" }
+  ],
+  "scorecard": [
+    { "key": "gathers_contact_information", "name": "Collects Caller Contact Information", "description": "Pass if the agent actively gathers the caller's contact information during the call, consistent with the stated goal of gathering contact details. Fail if the agent ends the call without attempting to collect this information.", "category": "DATA_CAPTURE" },
+    { "key": "immediate_tool_use_on_trigger", "name": "Immediate Tool Use on Matching Trigger", "description": "Pass if, when the caller's question matches a configured tool's trigger condition, the agent uses the tool immediately without asking the caller for additional information first. Fail if the agent delays tool use or requests extra details before invoking a matching tool.", "category": "GOAL" },
+    { "key": "no_tool_fallback_response", "name": "Proper Fallback When No Tool Matches", "description": "Pass if, when no tool is available or the question does not match any trigger, the agent politely tells the caller that a team member will reach out with an answer, without suggesting the internet, websites, apps, or other external sources. Fail if the agent suggests external resources or fails to give this fallback response.", "category": "CONTAINMENT" },
+    { "key": "redirects_to_contact_gathering", "name": "Redirects Back to Contact Info Collection", "description": "Pass if, after handling an unmatched query, the agent redirects the conversation back to gathering the remaining contact information without further engaging in details about the caller's question. Fail if the agent continues discussing the unresolved query instead of redirecting.", "category": "CONTAINMENT" },
+    { "key": "no_unspecified_information", "name": "Sticks to Provided Information Only", "description": "Pass if the agent only shares information explicitly given in the prompt or tool instructions, and states that a team member will follow up when requested information is not specified. Fail if the agent provides details, answers, or explanations not found in the prompt.", "category": "KNOWLEDGE" },
+    { "key": "no_assumptions_or_guesses", "name": "Avoids Assumptions and Guesses", "description": "Pass if the agent does not confirm, infer, or guess any detail not explicitly stated in the prompt. Fail if the agent makes any unsupported inference or generalization.", "category": "CONTAINMENT" },
+    { "key": "avoids_query_detail_probing", "name": "Avoids Asking for Further Query Details", "description": "Pass if the agent does not ask the caller for additional details about their question/issue beyond what is needed for contact info or tool use. Fail if the agent probes for more specifics about the caller's query.", "category": "CONTAINMENT" },
+    { "key": "no_verbatim_repetition", "name": "Does Not Repeat Same Sentence Verbatim", "description": "Pass if the agent varies its phrasing across the call and does not repeat the exact same sentence verbatim. Fail if identical sentences are used repeatedly in the transcript.", "category": "CONVERSATIONAL" },
+    { "key": "assures_prompt_callback", "name": "Assures Prompt Callback", "description": "Pass if the agent assures the caller of a prompt callback from the team and conveys commitment to their satisfaction, per the call flow script. Fail if this assurance is missing from the call.", "category": "COMPLIANCE" },
+    { "key": "proper_call_conclusion", "name": "Proper Call Conclusion", "description": "Pass if the agent ends the call by thanking the caller again, assuring them their issue is being addressed, and wishing them a pleasant day, only after contact information has been gathered and queries handled. Fail if any of these closing elements are missing or the call ends prematurely.", "category": "COMPLIANCE" }
+  ],
+  "expected": {
+    "gathers_contact_information": "pass",
+    "immediate_tool_use_on_trigger": "not_applicable",
+    "no_tool_fallback_response": "not_applicable",
+    "redirects_to_contact_gathering": "not_applicable",
+    "no_unspecified_information": "pass",
+    "no_assumptions_or_guesses": "pass",
+    "avoids_query_detail_probing": "pass",
+    "no_verbatim_repetition": "pass",
+    "assures_prompt_callback": "pass",
+    "proper_call_conclusion": "pass"
+  }
+}

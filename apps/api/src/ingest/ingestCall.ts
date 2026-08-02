@@ -4,6 +4,7 @@ import { getAgentByGhlId, upsertAgentFromGhl } from "../db/agents.js";
 import { upsertCall } from "../db/calls.js";
 import { getAgent, getCallLog } from "../ghl/client.js";
 import { resolveAccessToken } from "../ghl/tokens.js";
+import { enqueueEvaluateCall } from "../jobs/queue.js";
 import { encryptToken } from "../lib/crypto.js";
 import { createRedactionState, redactDeep, redactText } from "../lib/redaction.js";
 import { normalizeCall } from "./normalizer.js";
@@ -38,7 +39,7 @@ export async function ingestCall(locationId: string, ghlCallId: string): Promise
       ? encryptToken(JSON.stringify(redaction.mapping), env.TOKEN_ENCRYPTION_KEY)
       : null;
 
-  await upsertCall({
+  const savedCall = await upsertCall({
     locationId,
     agentId: agent.id,
     ghlCallId: call.ghlCallId,
@@ -58,4 +59,9 @@ export async function ingestCall(locationId: string, ghlCallId: string): Promise
     redactionMap,
     turns: redactedTurns,
   });
+
+  // §6.2: ingestion "upserts, then enqueues evaluation jobs." One shared place
+  // to enqueue from, since this function is already the single destination for
+  // all three ingestion entry points.
+  await enqueueEvaluateCall(savedCall.id);
 }

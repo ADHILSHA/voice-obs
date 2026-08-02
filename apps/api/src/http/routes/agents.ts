@@ -2,8 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CriterionCategory, ScorecardSource, Severity } from "../../../generated/prisma/client.js";
 import { getAgentById, listAgentsByLocation } from "../../db/agents.js";
+import { getHealthScoresForAgent } from "../../db/evaluations.js";
 import { createScorecardVersion, getActiveScorecard, type CriterionInput } from "../../db/scorecards.js";
 import { generateScorecardCriteria, type GeneratedCriterion } from "../../eval/generateScorecard.js";
+import { computeAgentHealthScore } from "../../eval/healthScore.js";
 
 const CATEGORY_MAP: Record<GeneratedCriterion["category"], CriterionCategory> = {
   goal: CriterionCategory.GOAL,
@@ -53,11 +55,16 @@ const putScorecardSchema = z.object({
 export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/agents", async (request, reply) => {
     const agents = await listAgentsByLocation(request.locationId);
-    // healthScore/trend need Evaluation rows, which don't exist until Phase 4 --
-    // null rather than a faked number (BUILD_SPEC §7: "estimates are labelled").
-    return reply.send({
-      agents: agents.map((agent) => ({ id: agent.id, name: agent.name, healthScore: null, trend: [] })),
-    });
+    // Real healthScore now that Evaluation rows exist (Phase 4) -- null only when
+    // there's genuinely no data yet (BUILD_SPEC §7: "estimates are labelled",
+    // which cuts the other way too: don't invent a number where there is none).
+    const withHealth = await Promise.all(
+      agents.map(async (agent) => {
+        const samples = await getHealthScoresForAgent(agent.id);
+        return { id: agent.id, name: agent.name, healthScore: computeAgentHealthScore(samples), trend: [] };
+      }),
+    );
+    return reply.send({ agents: withHealth });
   });
 
   app.get("/api/agents/:id", async (request, reply) => {
@@ -66,7 +73,8 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
     if (!agent) {
       return reply.status(404).send({ error: "Agent not found" });
     }
-    return reply.send({ ...agent, healthScore: null, trend: [] });
+    const samples = await getHealthScoresForAgent(agent.id);
+    return reply.send({ ...agent, healthScore: computeAgentHealthScore(samples), trend: [] });
   });
 
   app.post("/api/agents/:id/scorecard/generate", async (request, reply) => {

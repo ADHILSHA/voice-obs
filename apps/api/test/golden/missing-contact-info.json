@@ -1,0 +1,25 @@
+{
+  "name": "missing-contact-info (synthetic)",
+  "agentPrompt": "You are a scheduling assistant. Your job on every call: greet the caller, ask for their full name, ask for a phone number, confirm a specific appointment date and time, and close the call politely.",
+  "transcript": [
+    { "idx": 0, "role": "AGENT", "text": "Hello, how can I help you?" },
+    { "idx": 1, "role": "CALLER", "text": "I want to schedule a visit for Friday." },
+    { "idx": 2, "role": "AGENT", "text": "Sure thing, Friday works. What time would you like?" },
+    { "idx": 3, "role": "CALLER", "text": "Morning, maybe 10?" },
+    { "idx": 4, "role": "AGENT", "text": "Perfect, 10 AM on Friday it is. Anything else?" },
+    { "idx": 5, "role": "CALLER", "text": "No that's all." },
+    { "idx": 6, "role": "AGENT", "text": "Great, goodbye!" }
+  ],
+  "scorecard": [
+    { "key": "captures_name", "name": "Captures caller name", "description": "Pass if the agent asks for and receives the caller's name.", "category": "DATA_CAPTURE" },
+    { "key": "captures_phone", "name": "Captures phone number", "description": "Pass if the agent asks for and receives a phone number.", "category": "DATA_CAPTURE" },
+    { "key": "confirms_appointment_time", "name": "Confirms appointment time", "description": "Pass if the agent confirms a specific date and time for the appointment.", "category": "GOAL" },
+    { "key": "polite_closing", "name": "Polite closing", "description": "Pass if the call ends with a polite closing statement.", "category": "CONVERSATIONAL" }
+  ],
+  "expected": {
+    "captures_name": "fail",
+    "captures_phone": "fail",
+    "confirms_appointment_time": "pass",
+    "polite_closing": "pass"
+  }
+}

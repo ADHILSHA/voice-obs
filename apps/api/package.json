@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "test": "vitest",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "eval:golden": "tsx scripts/eval-golden.ts"
   },
   "keywords": [],
   "author": "",

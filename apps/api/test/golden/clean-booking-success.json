@@ -1,0 +1,27 @@
+{
+  "name": "clean-booking-success (synthetic)",
+  "agentPrompt": "You are a scheduling assistant. Your job on every call: greet the caller, ask for their full name, ask for a phone number, confirm a specific appointment date and time, and close the call politely.",
+  "transcript": [
+    { "idx": 0, "role": "AGENT", "text": "Hi, thanks for calling! How can I help you today?" },
+    { "idx": 1, "role": "CALLER", "text": "I'd like to book an appointment for next Tuesday." },
+    { "idx": 2, "role": "AGENT", "text": "Sure! Can I get your name please?" },
+    { "idx": 3, "role": "CALLER", "text": "It's Maria Lopez." },
+    { "idx": 4, "role": "AGENT", "text": "Thanks Maria. And what's the best phone number to reach you?" },
+    { "idx": 5, "role": "CALLER", "text": "555-201-4488." },
+    { "idx": 6, "role": "AGENT", "text": "Great, I've got you down for Tuesday at 2 PM. Does that work?" },
+    { "idx": 7, "role": "CALLER", "text": "Yes, that works perfectly." },
+    { "idx": 8, "role": "AGENT", "text": "Wonderful, see you then! Have a great day." }
+  ],
+  "scorecard": [
+    { "key": "captures_name", "name": "Captures caller name", "description": "Pass if the agent asks for and receives the caller's name.", "category": "DATA_CAPTURE" },
+    { "key": "captures_phone", "name": "Captures phone number", "description": "Pass if the agent asks for and receives a phone number.", "category": "DATA_CAPTURE" },
+    { "key": "confirms_appointment_time", "name": "Confirms appointment time", "description": "Pass if the agent confirms a specific date and time for the appointment.", "category": "GOAL" },
+    { "key": "polite_closing", "name": "Polite closing", "description": "Pass if the call ends with a polite closing statement.", "category": "CONVERSATIONAL" }
+  ],
+  "expected": {
+    "captures_name": "pass",
+    "captures_phone": "pass",
+    "confirms_appointment_time": "pass",
+    "polite_closing": "pass"
+  }
+}

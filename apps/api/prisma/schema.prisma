@@ -106,6 +106,7 @@ model Agent {
   name            String
   promptSnapshot  String      @db.Text // last known agent prompt
   promptFetchedAt DateTime
+  actions         Json        @default("[]") // configured actions from the GHL agent object, for actionFired matching
   scorecards      Scorecard[]
   calls           Call[]
 

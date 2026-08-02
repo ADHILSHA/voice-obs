@@ -26,6 +26,24 @@ export function enqueueIngestCall(locationId: string, ghlCallId: string): Promis
   });
 }
 
+export interface EvaluateCallJobData {
+  type: "evaluate-call";
+  callId: string;
+}
+
+// Deliberately no fixed jobId here (unlike ingest-call/below): inputHash isn't
+// known until evaluateCall runs (it depends on the *current* active scorecard
+// version), so a callId-keyed jobId would wrongly block a legitimate second
+// evaluation after a scorecard version bump, since BullMQ dedupes adds against a
+// completed job with the same id. The real idempotency guarantee is the DB-level
+// inputHash cache check inside evaluateCall (§6.3: "a cache hit must not call the
+// API at all") -- a redundant enqueue here just costs one cheap DB read, not an
+// API call, so it's safe to let duplicates through at the queue level.
+export function enqueueEvaluateCall(callId: string): Promise<unknown> {
+  const data: EvaluateCallJobData = { type: "evaluate-call", callId };
+  return jobsQueue.add("evaluate-call", data);
+}
+
 export interface RunBackfillJobData {
   type: "run-backfill";
   locationId: string;

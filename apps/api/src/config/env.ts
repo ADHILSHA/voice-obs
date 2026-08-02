@@ -39,6 +39,9 @@ const envSchema = z.object({
   // claude-sonnet-5 for both per the initial spec review.
   MODEL_EVAL: z.string().min(1).default("claude-sonnet-5"),
   MODEL_SYNTHESIS: z.string().min(1).default("claude-sonnet-5"),
+  // §6.3: "Concurrency cap from config, default 4." Applied as the shared BullMQ
+  // Worker's concurrency (jobs/worker.ts).
+  EVAL_CONCURRENCY: z.coerce.number().int().positive().default(4),
 });
 
 export const env = envSchema.parse(process.env);

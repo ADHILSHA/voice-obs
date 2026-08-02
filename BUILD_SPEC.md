@@ -216,13 +216,18 @@ model Call {
   locationId     String
   agentId        String
   ghlCallId      String
-  direction      String
-  startedAt      DateTime
+  direction      String?  // no source field in the API at all; nullable until a call type surfaces one
+  startedAt      DateTime // populated from the API's `createdAt` -- there is no distinct call-start timestamp
   durationSec    Int
-  endedReason    String?
-  actionsTriggered Json
-  recordingUrl   String?
-  contactRef     String?  // opaque, never a raw phone number
+  endedReason    String?  // no raw source field either; stays null unless synthesized from the transcript's last turn
+  actionsTriggered Json   // maps from the API's `executedCallActions`; populated-entry shape unconfirmed (n=1, zero actions fired so far)
+  recordingUrl   String?  // confirmed absent (key missing, not null) on every sample call so far
+  contactRef     String?  // opaque, never a raw phone number; maps from the API's `contactId`
+  summary        String?  @db.Text // GHL's own generated call summary; not in the original spec, useful as judge context
+  extractedData  Json?    // structured slot-capture data from the call; empty object on every sample so far, populated shape unconfirmed
+  isTrialCall    Boolean  @default(false) // maps from `trialCall` -- GHL's own test-call flag, distinct from our seed-script `isSynthetic`
+  isAgentDeleted Boolean  @default(false) // maps from `isAgentDeleted`; the agent may no longer be fetchable via the agents endpoint
+  translation    Json?    // null on every sample so far; shape unconfirmed
   rawPayload     Json     // redacted
   turns          Turn[]
   evaluations    Evaluation[]

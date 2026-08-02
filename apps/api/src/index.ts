@@ -3,10 +3,13 @@ import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { env } from "./config/env.js";
+import { registerAuthRoutes } from "./http/routes/auth.js";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = Fastify({ logger: true });
+
+await registerAuthRoutes(app);
 
 await app.register(fastifyStatic, {
   root: path.join(dirname, "../public"),

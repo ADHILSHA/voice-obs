@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import {
+  applyRecommendation,
+  dismissRecommendation,
+  generateRecommendations,
   getAgent,
   getRecommendations,
   getScorecard,
@@ -67,6 +70,11 @@ function formatPct(value: number | null): string {
 const recommendations = ref<Recommendation[]>([]);
 const recommendationsStatus = ref<"loading" | "empty" | "error" | "ready">("loading");
 const expandedRecId = ref<string | null>(null);
+const generatingRecommendations = ref(false);
+const generateError = ref<string | null>(null);
+const confirmingApplyId = ref<string | null>(null);
+const applyingRecId = ref<string | null>(null);
+const applyError = ref<string | null>(null);
 
 async function loadAgent(): Promise<void> {
   agentStatus.value = "loading";
@@ -88,6 +96,41 @@ async function loadRecommendations(): Promise<void> {
   } catch {
     recommendationsStatus.value = "error";
   }
+}
+
+async function onGenerateRecommendations(): Promise<void> {
+  generatingRecommendations.value = true;
+  generateError.value = null;
+  try {
+    await generateRecommendations(agentId.value);
+    await loadRecommendations();
+  } catch (err) {
+    generateError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    generatingRecommendations.value = false;
+  }
+}
+
+function replaceRecommendation(updated: Recommendation): void {
+  const index = recommendations.value.findIndex((r) => r.id === updated.id);
+  if (index !== -1) recommendations.value.splice(index, 1, updated);
+}
+
+async function onConfirmApply(rec: Recommendation): Promise<void> {
+  applyingRecId.value = rec.id;
+  applyError.value = null;
+  try {
+    replaceRecommendation(await applyRecommendation(rec.id));
+    confirmingApplyId.value = null;
+  } catch (err) {
+    applyError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    applyingRecId.value = null;
+  }
+}
+
+async function onDismiss(rec: Recommendation): Promise<void> {
+  replaceRecommendation(await dismissRecommendation(rec.id));
 }
 
 // Scorecard editor drawer
@@ -176,14 +219,25 @@ onMounted(() => {
           Health: {{ formatPct(agent.healthScore) }} (est.) — {{ agent.callCount }} call(s)
         </p>
       </div>
-      <button
-        type="button"
-        class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-        @click="openDrawer"
-      >
-        Edit scorecard
-      </button>
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          :disabled="generatingRecommendations"
+          @click="onGenerateRecommendations"
+        >
+          {{ generatingRecommendations ? "Finding…" : "Find recommendations" }}
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          @click="openDrawer"
+        >
+          Edit scorecard
+        </button>
+      </div>
     </div>
+    <p v-if="generateError" class="text-sm text-red-700">{{ generateError }}</p>
 
     <section>
       <h2 class="mb-2 text-sm font-semibold text-gray-900">Criteria</h2>
@@ -233,19 +287,90 @@ onMounted(() => {
         Could not load recommendations.
       </div>
       <ul v-else class="divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
-        <li v-for="rec in recommendations" :key="rec.id" class="p-3">
-          <button
-            type="button"
-            class="w-full text-left text-sm font-medium text-gray-900"
-            @click="expandedRecId = expandedRecId === rec.id ? null : rec.id"
-          >
-            {{ rec.title }} ({{ rec.affectedCalls }} calls, {{ Math.round(rec.affectedPct * 100) }}%)
-          </button>
+        <li v-for="rec in recommendations" :key="rec.id" class="p-3" :class="{ 'opacity-50': rec.status === 'DISMISSED' }">
+          <div class="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              class="flex-1 text-left text-sm font-medium text-gray-900"
+              @click="expandedRecId = expandedRecId === rec.id ? null : rec.id"
+            >
+              {{ rec.title }} ({{ rec.affectedCalls }} calls, {{ Math.round(rec.affectedPct * 100) }}%)
+            </button>
+            <span
+              class="rounded-md border px-2 py-0.5 text-xs font-medium"
+              :class="{
+                'border-gray-300 bg-gray-50 text-gray-600': rec.status === 'OPEN',
+                'border-green-300 bg-green-50 text-green-700': rec.status === 'APPLIED',
+                'border-gray-200 bg-gray-50 text-gray-400': rec.status === 'DISMISSED',
+              }"
+            >
+              {{ rec.status }}
+            </span>
+          </div>
+
           <div v-if="expandedRecId === rec.id" class="mt-2 space-y-2 text-sm">
             <p class="text-gray-700">{{ rec.body }}</p>
             <div class="rounded-md bg-gray-50 p-2 font-mono text-xs">
-              <p class="text-red-600">- {{ rec.promptDiff.before }}</p>
+              <p class="text-red-600">- {{ rec.promptDiff.before || "(insertion, no text replaced)" }}</p>
               <p class="text-green-700">+ {{ rec.promptDiff.after }}</p>
+            </div>
+
+            <template v-if="rec.status === 'OPEN'">
+              <p v-if="applyError && applyingRecId === rec.id" class="text-red-700">{{ applyError }}</p>
+              <div v-if="confirmingApplyId !== rec.id" class="flex gap-2">
+                <button
+                  type="button"
+                  class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                  @click="confirmingApplyId = rec.id"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  class="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                  @click="onDismiss(rec)"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div v-else class="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <p>This writes directly to the agent's live prompt in HighLevel.</p>
+                <div class="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                    :disabled="applyingRecId === rec.id"
+                    @click="onConfirmApply(rec)"
+                  >
+                    {{ applyingRecId === rec.id ? "Applying…" : "Confirm and apply" }}
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                    @click="confirmingApplyId = null"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <div v-else-if="rec.status === 'APPLIED'" class="rounded-md bg-gray-50 p-2 text-xs text-gray-700">
+              <template v-if="rec.impact.state === 'collecting_data'">
+                Collecting data — no calls evaluated since this was applied yet.
+              </template>
+              <template v-else>
+                Baseline: {{ rec.impact.baselineRate === null ? "—" : formatPct(rec.impact.baselineRate) }} →
+                Current: {{ rec.impact.currentRate === null ? "—" : formatPct(rec.impact.currentRate) }}
+                <span
+                  :class="{
+                    'text-green-700': rec.impact.state === 'improved',
+                    'text-red-700': rec.impact.state === 'worse',
+                  }"
+                >
+                  ({{ rec.impact.state }})
+                </span>
+              </template>
             </div>
           </div>
         </li>

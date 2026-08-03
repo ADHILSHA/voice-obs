@@ -38,3 +38,17 @@ export async function getActionById(locationId: string, id: string): Promise<Act
 export async function updateAction(id: string, input: UpdateActionInput): Promise<ActionItem> {
   return prisma.actionItem.update({ where: { id }, data: input });
 }
+
+// No unique constraint exists for (callId, reason) -- this is a query-then-create
+// check instead of a Prisma upsert, same idempotency style used for
+// Recommendation clustering. Returns null (not an error) when one already
+// exists, since "already flagged" is the expected steady state, not a failure.
+export async function createActionItemIfMissing(
+  callId: string,
+  reason: ActionReason,
+  severity: ActionItem["severity"],
+): Promise<ActionItem | null> {
+  const existing = await prisma.actionItem.findFirst({ where: { callId, reason } });
+  if (existing) return null;
+  return prisma.actionItem.create({ data: { callId, reason, severity, status: "OPEN" } });
+}

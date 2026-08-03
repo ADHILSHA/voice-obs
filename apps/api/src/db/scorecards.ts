@@ -92,8 +92,10 @@ const VERDICT_VALUES: Record<string, number | null> = {
 };
 
 // Same weighting as eval/healthScore.ts's per-call formula, applied across many
-// results instead of one call's results.
-function computePassRate(results: { verdict: string }[]): number | null {
+// results instead of one call's results. Exported for reuse by recommendation
+// impact tracking (db/recommendations.ts), which needs the identical formula for
+// baseline-vs-current pass rate comparisons.
+export function computePassRate(results: { verdict: string }[]): number | null {
   let sum = 0;
   let count = 0;
   for (const result of results) {

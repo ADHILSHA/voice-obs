@@ -36,3 +36,11 @@ export async function listAgentsByLocation(locationId: string): Promise<Agent[]>
 export async function getAgentById(locationId: string, id: string): Promise<Agent | null> {
   return prisma.agent.findFirst({ where: { id, locationId } });
 }
+
+// Keeps the local cache in sync immediately after a recommendation is applied --
+// without this, promptSnapshot would go stale until the next ingest/backfill
+// re-fetches the agent, and a second "Find recommendations" run would synthesize
+// against outdated prompt text.
+export async function updateAgentPromptSnapshot(id: string, promptSnapshot: string): Promise<Agent> {
+  return prisma.agent.update({ where: { id }, data: { promptSnapshot, promptFetchedAt: new Date() } });
+}

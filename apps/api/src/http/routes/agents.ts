@@ -12,6 +12,7 @@ import {
   type CriterionStat,
 } from "../../db/scorecards.js";
 import { generateScorecardCriteria, type GeneratedCriterion } from "../../eval/generateScorecard.js";
+import { generateRecommendationsForAgent } from "../../eval/generateRecommendations.js";
 import { computeAgentHealthScore, computeDailySparkline } from "../../eval/healthScore.js";
 
 function topFailingCriterion(stats: CriterionStat[]): CriterionStat | null {
@@ -156,5 +157,16 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
       ScorecardSource.MANUAL,
     );
     return reply.send(scorecard);
+  });
+
+  app.post("/api/agents/:id/recommendations/generate", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const agent = await getAgentById(request.locationId, id);
+    if (!agent) {
+      return reply.status(404).send({ error: "Agent not found" });
+    }
+
+    const created = await generateRecommendationsForAgent(agent.id, agent.promptSnapshot);
+    return reply.send({ recommendations: created });
   });
 }

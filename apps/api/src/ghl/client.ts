@@ -272,3 +272,25 @@ export async function getAgent(token: string, locationId: string, ghlAgentId: st
   }
   return parseOrLog(agentSchema, json, locationId, "getAgent");
 }
+
+// Verified live against this project's own sandbox agent (Phase 6 planning):
+// PUT, not PATCH -- PATCH 422s ("property locationId should not exist" with the
+// query param, 403 "LocationId is required" without it). locationId is required
+// in both the query string and the body for PUT to succeed.
+export async function updateAgentPrompt(
+  token: string,
+  locationId: string,
+  ghlAgentId: string,
+  agentPrompt: string,
+): Promise<GhlAgent> {
+  const res = await ghlFetch(`/voice-ai/agents/${ghlAgentId}?locationId=${locationId}`, {
+    method: "PUT",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ agentPrompt, locationId }),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(`updateAgentPrompt failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+  return parseOrLog(agentSchema, json, locationId, "updateAgentPrompt");
+}

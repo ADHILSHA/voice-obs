@@ -295,6 +295,14 @@ export function updateAction(id: string, patch: UpdateActionPatch): Promise<Acti
   return apiFetch(`/api/actions/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
+export type ImpactState = "not_applied" | "collecting_data" | "improved" | "unchanged" | "worse";
+
+export interface RecommendationImpact {
+  state: ImpactState;
+  baselineRate: number | null;
+  currentRate: number | null;
+}
+
 export interface Recommendation {
   id: string;
   agentId: string;
@@ -308,12 +316,25 @@ export interface Recommendation {
   severity: Severity;
   status: RecStatus;
   createdAt: string;
+  impact: RecommendationImpact;
 }
 
 export function getRecommendations(
   filters: { agentId?: string; status?: RecStatus } = {},
 ): Promise<{ recommendations: Recommendation[] }> {
   return apiFetch(`/api/recommendations${toQueryString(filters)}`);
+}
+
+export function generateRecommendations(agentId: string): Promise<{ recommendations: Recommendation[] }> {
+  return apiFetch(`/api/agents/${agentId}/recommendations/generate`, { method: "POST" });
+}
+
+export function applyRecommendation(id: string): Promise<Recommendation> {
+  return apiFetch(`/api/recommendations/${id}/apply`, { method: "POST" });
+}
+
+export function dismissRecommendation(id: string): Promise<Recommendation> {
+  return apiFetch(`/api/recommendations/${id}/dismiss`, { method: "POST" });
 }
 
 export function triggerBackfill(days: number): Promise<{ jobId: string }> {

@@ -4,6 +4,7 @@ import { RootCause, Verdict } from "../../generated/prisma/client.js";
 import { prisma } from "../db/client.js";
 import { createEvaluation, findByInputHash } from "../db/evaluations.js";
 import { getActiveScorecard } from "../db/scorecards.js";
+import { checkForActionTriggers } from "./actionTriggers.js";
 import { computeDeterministicMetrics } from "./deterministicChecks.js";
 import { computeCallHealthScore } from "./healthScore.js";
 import { judgeCall } from "./judge.js";
@@ -97,4 +98,10 @@ export async function evaluateCall(callId: string): Promise<void> {
     metrics: deterministicMetrics as unknown as Prisma.InputJsonValue,
     results,
   });
+
+  await checkForActionTriggers(
+    callId,
+    results.map((r) => ({ criterionKey: r.criterionKey, verdict: r.verdict })),
+    scorecard.criteria.map((c) => ({ key: c.key, severity: c.severity, category: c.category })),
+  );
 }

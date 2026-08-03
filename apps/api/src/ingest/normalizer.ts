@@ -35,7 +35,7 @@ const SPEAKER_PREFIXES: { prefix: string; role: TurnRole }[] = [
 // start with a recognized speaker prefix -- a blank line from a mid-sentence wrap,
 // or interruption artifacts -- is folded into the previous turn's text rather than
 // treated as a new turn or dropped. Confirmed necessary against a real captured
-// transcript, not a hypothetical (see docs/DECISIONS.md).
+// transcript, not a hypothetical.
 export function parseTranscript(transcript: string): { role: TurnRole; text: string }[] {
   const lines = transcript.split("\n");
   const turns: { role: TurnRole; text: string }[] = [];
@@ -72,7 +72,7 @@ export function normalizeCall(
     idx,
     role: turn.role,
     text: turn.text,
-    startMs: null, // no per-turn timing exists anywhere in this API (docs/DECISIONS.md)
+    startMs: null, // no per-turn timing exists anywhere in this API
   }));
 
   const call: NormalizedCall = {

@@ -59,9 +59,10 @@ function computeReAskCount(turns: Turn[]): number {
   return count;
 }
 
-// No per-turn timestamps exist anywhere in this API (confirmed, docs/DECISIONS.md)
-// so this is always null in practice. Computed for real rather than hardcoded so
-// it starts working the moment a data source with timestamps exists.
+// No per-turn timestamps exist anywhere in this API (confirmed against real
+// captured payloads), so this is always null in practice. Computed for real
+// rather than hardcoded so it starts working the moment a data source with
+// timestamps exists.
 function computeDeadAirMaxMs(turns: Turn[]): number | null {
   const withTiming = turns.filter((t): t is Turn & { startMs: number } => t.startMs !== null);
   if (withTiming.length < 2) return null;

@@ -21,8 +21,7 @@ const turnEls = new Map<number, HTMLElement>();
 const transcriptContainer = ref<HTMLElement | null>(null);
 
 // Avoids a TS cast inside the template expression (template expressions aren't
-// reliably type-checked without vue-tsc, which doesn't run under TS7 -- see
-// docs/DECISIONS.md-style notes elsewhere in this repo).
+// reliably type-checked without vue-tsc, which doesn't run under TS7).
 function setTurnRef(idx: number, el: unknown): void {
   if (el instanceof HTMLElement) turnEls.set(idx, el);
   else turnEls.delete(idx);

@@ -18,6 +18,7 @@ const revealLoading = ref(false);
 const reevaluating = ref(false);
 
 const turnEls = new Map<number, HTMLElement>();
+const transcriptContainer = ref<HTMLElement | null>(null);
 
 // Avoids a TS cast inside the template expression (template expressions aren't
 // reliably type-checked without vue-tsc, which doesn't run under TS7 -- see
@@ -52,18 +53,47 @@ const highlightedTurns = computed<Set<number>>(() => {
   return new Set(result?.evidenceTurns ?? []);
 });
 
-function onHoverCriterion(key: string): void {
+// Real evidenceTurns spans are often wide, so consecutive hovers frequently
+// target a turn that's already on screen -- rescrolling to "center" it anyway
+// produces the jumpy motion this is meant to avoid.
+function isWithinContainer(el: HTMLElement, container: HTMLElement): boolean {
+  const elRect = el.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  return elRect.top >= containerRect.top && elRect.bottom <= containerRect.bottom;
+}
+
+function applyHighlight(key: string): void {
   hoveredCriterionKey.value = key;
   const result = results.value.find((r) => r.criterionKey === key);
   const firstTurn = result?.evidenceTurns[0];
   if (firstTurn !== undefined) {
     nextTick(() => {
-      turnEls.get(firstTurn)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const el = turnEls.get(firstTurn);
+      const container = transcriptContainer.value;
+      if (el && container && !isWithinContainer(el, container)) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     });
   }
 }
 
+// Real evidenceTurns spans are often wide (a criterion can cite 5+ turns), so
+// scrolling to a new target on every mouseenter meant just sweeping the mouse
+// down the criteria list fired a cascade of competing smooth-scrolls. Only a
+// hover that lasts past a brief dwell counts as intentional.
+let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
+const HOVER_DELAY_MS = 150;
+
+function onHoverCriterion(key: string): void {
+  if (hoverTimeout !== null) clearTimeout(hoverTimeout);
+  hoverTimeout = setTimeout(() => applyHighlight(key), HOVER_DELAY_MS);
+}
+
 function onLeaveCriterion(): void {
+  if (hoverTimeout !== null) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
   hoveredCriterionKey.value = null;
 }
 
@@ -106,7 +136,7 @@ async function loadCall(): Promise<void> {
     const highlightKey = route.query.highlight;
     if (typeof highlightKey === "string") {
       await nextTick();
-      onHoverCriterion(highlightKey);
+      applyHighlight(highlightKey);
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -200,7 +230,7 @@ onMounted(loadCall);
             {{ revealLoading ? "Revealing…" : revealed ? "Hide redacted" : "Reveal redacted" }}
           </button>
         </div>
-        <div class="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+        <div ref="transcriptContainer" class="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
           <div
             v-for="turn in call.turns"
             :key="turn.id"

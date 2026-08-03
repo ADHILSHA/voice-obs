@@ -46,7 +46,11 @@ export async function postSsoLogin(encryptedPayload: string): Promise<SsoLoginRe
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = useSessionStore();
   const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
+  // Only when there's a body -- Fastify's default JSON parser throws
+  // FST_ERR_CTP_EMPTY_JSON_BODY if Content-Type is application/json but the
+  // body is empty, which every bodyless POST (generate scorecard, reevaluate,
+  // reveal) would otherwise hit.
+  if (init.body !== undefined) headers.set("Content-Type", "application/json");
   if (session.token) headers.set("Authorization", `Bearer ${session.token}`);
 
   const res = await fetch(path, { ...init, headers });

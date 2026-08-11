@@ -13,7 +13,9 @@ import {
 } from "../../db/scorecards.js";
 import { generateScorecardCriteria, type GeneratedCriterion } from "../../eval/generateScorecard.js";
 import { generateRecommendationsForAgent } from "../../eval/generateRecommendations.js";
+import { generateTestCasesForAgent } from "../../eval/generateTestCases.js";
 import { computeAgentHealthScore, computeDailySparkline } from "../../eval/healthScore.js";
+import { suggestScorecardCriteria } from "../../eval/suggestCriteria.js";
 
 function topFailingCriterion(stats: CriterionStat[]): CriterionStat | null {
   const withFailures = stats.filter((s) => s.failingCallCount > 0);
@@ -129,6 +131,29 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(scorecard);
   });
 
+  app.post("/api/agents/:id/scorecard/suggest", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const agent = await getAgentById(request.locationId, id);
+    if (!agent) {
+      return reply.status(404).send({ error: "Agent not found" });
+    }
+
+    const scorecard = await getActiveScorecard(agent.id);
+    if (!scorecard) {
+      return reply
+        .status(404)
+        .send({ error: "No active scorecard to suggest additions for — generate one first" });
+    }
+
+    const { useCase, suggestions } = await suggestScorecardCriteria(
+      agent.name,
+      agent.promptSnapshot,
+      scorecard.criteria.map((c) => ({ key: c.key, name: c.name, description: c.description })),
+    );
+
+    return reply.send({ useCase, suggestions: suggestions.map(toCriterionInput) });
+  });
+
   app.get("/api/agents/:id/scorecard", async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
     const agent = await getAgentById(request.locationId, id);
@@ -168,5 +193,16 @@ export async function registerAgentRoutes(app: FastifyInstance): Promise<void> {
 
     const created = await generateRecommendationsForAgent(agent.id, agent.promptSnapshot);
     return reply.send({ recommendations: created });
+  });
+
+  app.post("/api/agents/:id/test-cases/generate", async (request, reply) => {
+    const { id } = idParamsSchema.parse(request.params);
+    const agent = await getAgentById(request.locationId, id);
+    if (!agent) {
+      return reply.status(404).send({ error: "Agent not found" });
+    }
+
+    const created = await generateTestCasesForAgent(agent.id, agent.name, agent.promptSnapshot);
+    return reply.send({ testCases: created });
   });
 }

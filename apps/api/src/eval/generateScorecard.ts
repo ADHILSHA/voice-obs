@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { anthropic } from "../lib/anthropic.js";
+import { extractJson } from "../lib/llmJson.js";
 import { buildScorecardGenerationPrompt } from "./prompts/scorecardGeneration.js";
 
-const generatedCriterionSchema = z.object({
+// Exported so suggestCriteria.ts reuses the exact same five-field shape rather
+// than redeclaring it -- criteria fields must never be validated by two schemas.
+export const generatedCriterionSchema = z.object({
   key: z.string().regex(/^[a-z][a-z0-9_]*$/, "must be snake_case"),
   name: z.string().min(1),
   description: z.string().min(1),
@@ -15,12 +18,6 @@ const generatedCriterionSchema = z.object({
 const generatedCriteriaArraySchema = z.array(generatedCriterionSchema).min(6).max(10);
 
 export type GeneratedCriterion = z.infer<typeof generatedCriterionSchema>;
-
-// Models sometimes wrap JSON in a code fence despite a "JSON only" instruction.
-function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return JSON.parse(fenced ? fenced[1] : text);
-}
 
 async function requestCriteria(agentPrompt: string, retryContext?: string): Promise<unknown> {
   const prompt = buildScorecardGenerationPrompt(agentPrompt);

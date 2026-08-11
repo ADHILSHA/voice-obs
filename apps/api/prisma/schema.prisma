@@ -86,6 +86,12 @@ enum ActionStatus {
   DISMISSED
 }
 
+enum TestCaseStatus {
+  NOT_TESTED
+  PASSED
+  FAILED
+}
+
 model Installation {
   id           String     @id @default(cuid())
   locationId   String     @unique
@@ -234,6 +240,21 @@ model ActionItem {
   assignee  String?
   note      String?
   createdAt DateTime     @default(now())
+}
+
+model TestCase {
+  id             String         @id @default(cuid())
+  agentId        String
+  key            String // stable slug, e.g. "pricing_question_unanswerable"
+  title          String
+  scenario       String         @db.Text // what the caller says/does on the test call
+  expectedResult String         @db.Text // what the agent should do/say, written for a human tester
+  transcript     Json? // simulated [{role, text}] turns playing out the scenario, generated alongside the case
+  status         TestCaseStatus @default(NOT_TESTED)
+  note           String? // QA notes recorded after placing the real test call
+  createdAt      DateTime       @default(now())
+
+  @@unique([agentId, key])
 }
 
 // Named in BUILD_SPEC §6.2 prose ("Log every payload to webhook_events for

@@ -12,6 +12,7 @@ import { registerOAuthRoutes } from "./http/routes/oauth.js";
 import { registerPitRoutes } from "./http/routes/pit.js";
 import { registerRecommendationRoutes } from "./http/routes/recommendations.js";
 import { registerSyncRoutes } from "./http/routes/sync.js";
+import { registerTestCaseRoutes } from "./http/routes/testCases.js";
 import { registerWebhookRoutes } from "./http/routes/webhook.js";
 import { scheduleDeltaPoll } from "./jobs/queue.js";
 import { startWorker } from "./jobs/worker.js";
@@ -29,6 +30,7 @@ await registerCallRoutes(app);
 await registerInsightsRoutes(app);
 await registerActionRoutes(app);
 await registerRecommendationRoutes(app);
+await registerTestCaseRoutes(app);
 
 startWorker();
 await scheduleDeltaPoll();

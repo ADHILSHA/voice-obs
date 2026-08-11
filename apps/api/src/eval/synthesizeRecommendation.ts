@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { anthropic } from "../lib/anthropic.js";
+import { extractJson } from "../lib/llmJson.js";
 import { buildRecommendPrompt, type RecommendEvidenceInput } from "./prompts/recommend.js";
 
 const promptDiffSchema = z
@@ -27,12 +28,6 @@ export interface SynthesizeRecommendationInput {
   criterionDescription: string;
   rootCause: string;
   evidence: RecommendEvidenceInput[];
-}
-
-// Models sometimes wrap JSON in a code fence despite a "JSON only" instruction.
-function extractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  return JSON.parse(fenced ? fenced[1] : text);
 }
 
 async function requestRecommendation(input: SynthesizeRecommendationInput, retryContext?: string): Promise<unknown> {

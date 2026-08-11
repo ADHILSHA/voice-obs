@@ -136,10 +136,6 @@ export function generateScorecard(agentId: string): Promise<Scorecard> {
   return apiFetch(`/api/agents/${agentId}/scorecard/generate`, { method: "POST" });
 }
 
-export function getScorecard(agentId: string): Promise<Scorecard> {
-  return apiFetch(`/api/agents/${agentId}/scorecard`);
-}
-
 export interface CriterionEditInput {
   key: string;
   name: string;
@@ -148,6 +144,19 @@ export interface CriterionEditInput {
   severity: Severity;
   weight: number;
   method: EvalMethod;
+}
+
+export interface SuggestCriteriaResponse {
+  useCase: string;
+  suggestions: CriterionEditInput[];
+}
+
+export function suggestCriteria(agentId: string): Promise<SuggestCriteriaResponse> {
+  return apiFetch(`/api/agents/${agentId}/scorecard/suggest`, { method: "POST" });
+}
+
+export function getScorecard(agentId: string): Promise<Scorecard> {
+  return apiFetch(`/api/agents/${agentId}/scorecard`);
 }
 
 export function updateScorecard(agentId: string, criteria: CriterionEditInput[]): Promise<Scorecard> {
@@ -335,6 +344,43 @@ export function applyRecommendation(id: string): Promise<Recommendation> {
 
 export function dismissRecommendation(id: string): Promise<Recommendation> {
   return apiFetch(`/api/recommendations/${id}/dismiss`, { method: "POST" });
+}
+
+export type TestCaseStatus = "NOT_TESTED" | "PASSED" | "FAILED";
+
+export interface TestCaseTranscriptTurn {
+  role: "AGENT" | "CALLER";
+  text: string;
+}
+
+export interface TestCase {
+  id: string;
+  agentId: string;
+  key: string;
+  title: string;
+  scenario: string;
+  expectedResult: string;
+  transcript: TestCaseTranscriptTurn[] | null;
+  status: TestCaseStatus;
+  note: string | null;
+  createdAt: string;
+}
+
+export function getTestCases(agentId: string): Promise<{ testCases: TestCase[] }> {
+  return apiFetch(`/api/test-cases${toQueryString({ agentId })}`);
+}
+
+export function generateTestCases(agentId: string): Promise<{ testCases: TestCase[] }> {
+  return apiFetch(`/api/agents/${agentId}/test-cases/generate`, { method: "POST" });
+}
+
+export interface UpdateTestCasePatch {
+  status?: TestCaseStatus;
+  note?: string | null;
+}
+
+export function updateTestCase(id: string, patch: UpdateTestCasePatch): Promise<TestCase> {
+  return apiFetch(`/api/test-cases/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 export function triggerBackfill(days: number): Promise<{ jobId: string }> {

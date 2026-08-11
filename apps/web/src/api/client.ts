@@ -392,6 +392,7 @@ export interface SyncStatus {
   processed: number;
   total: number;
   lastSyncedAt: string | null;
+  error: string | null;
 }
 
 export function getSyncStatus(): Promise<SyncStatus> {

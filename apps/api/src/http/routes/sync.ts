@@ -26,6 +26,7 @@ export async function registerSyncRoutes(app: FastifyInstance): Promise<void> {
       processed: status?.processed ?? 0,
       total: status?.total ?? 0,
       lastSyncedAt: installation?.lastSyncedAt ?? null,
+      error: status?.error ?? null,
     });
   });
 }

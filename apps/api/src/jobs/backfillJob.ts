@@ -1,6 +1,7 @@
 import { listCallLogs } from "../ghl/client.js";
 import { resolveAccessToken } from "../ghl/tokens.js";
 import { ingestCall } from "../ingest/ingestCall.js";
+import { syncAgentsForLocation } from "../ingest/syncAgents.js";
 import { redis } from "../lib/redis.js";
 
 const PAGE_SIZE = 50;
@@ -9,6 +10,7 @@ export interface BackfillStatus {
   state: "running" | "completed" | "failed";
   processed: number;
   total: number;
+  error?: string;
 }
 
 function progressKey(locationId: string): string {
@@ -29,13 +31,24 @@ export async function getBackfillStatus(locationId: string): Promise<BackfillSta
 // filtering happens client-side against every page rather than trusting an
 // unconfirmed server-side filter.
 export async function runBackfill(locationId: string, days: number): Promise<void> {
-  const token = await resolveAccessToken(locationId);
-  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
   let processed = 0;
   const toIngest: string[] = [];
 
+  // Written before anything that can fail (including token resolution) --
+  // otherwise a failure that happens before the first setProgress call (e.g.
+  // no Installation for this location yet) leaves the progress key unset, and
+  // /api/sync/status silently reports the default "idle" forever instead of
+  // surfacing that the job actually ran and failed.
+  await setProgress(locationId, { state: "running", processed: 0, total: 0 });
+
   try {
+    const token = await resolveAccessToken(locationId);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // Runs before call-log paging so an agent with zero calls yet still shows
+    // up after backfill, not just agents that happen to have call history.
+    await syncAgentsForLocation(token, locationId);
+
     let page = 1;
     for (;;) {
       const response = await listCallLogs(token, locationId, { page, pageSize: PAGE_SIZE });
@@ -60,7 +73,8 @@ export async function runBackfill(locationId: string, days: number): Promise<voi
 
     await setProgress(locationId, { state: "completed", processed, total: toIngest.length });
   } catch (err) {
-    await setProgress(locationId, { state: "failed", processed, total: toIngest.length });
+    const message = err instanceof Error ? err.message : String(err);
+    await setProgress(locationId, { state: "failed", processed, total: toIngest.length, error: message });
     throw err;
   }
 }

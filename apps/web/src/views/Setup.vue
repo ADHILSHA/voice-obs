@@ -145,6 +145,9 @@ onUnmounted(() => {
           State: <span class="font-medium">{{ syncStatus.state }}</span>
           <span v-if="syncStatus.total > 0"> — {{ syncStatus.processed }}/{{ syncStatus.total }} calls</span>
         </p>
+        <p v-if="syncStatus.state === 'failed' && syncStatus.error" class="mt-1 text-red-700">
+          {{ syncStatus.error }}
+        </p>
         <p v-if="syncStatus.lastSyncedAt" class="text-gray-500">Last synced: {{ syncStatus.lastSyncedAt }}</p>
       </div>
     </section>

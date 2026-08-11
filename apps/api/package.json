@@ -5,9 +5,11 @@
   "main": "dist/src/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
+    "start": "node dist/src/index.js",
     "test": "vitest",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "eval:golden": "tsx scripts/eval-golden.ts"
   },
   "keywords": [],

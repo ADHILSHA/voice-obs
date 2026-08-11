@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "npm run dev -w apps/api & npm run dev -w apps/web",
     "build": "npm run build -w apps/web && npm run build -w apps/api",
+    "start": "npm run start -w apps/api",
     "test": "npm run test -w apps/api",
     "lint": "eslint .",
     "db:migrate": "npm run db:migrate -w apps/api",
+    "db:migrate:deploy": "npm run db:migrate:deploy -w apps/api",
     "capture-fixtures": "tsx scripts/capture-fixtures.ts",
     "eval:golden": "npm run eval:golden -w apps/api"
   },
